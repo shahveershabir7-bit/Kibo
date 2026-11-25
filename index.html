@@ -364,6 +364,16 @@ h2{font:500 clamp(30px,4vw,50px)/1.08 var(--font-display);letter-spacing:-.015em
   html{scroll-behavior:auto}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* Full product image viewer */
+.image-viewer{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(15,18,16,.88)}
+.image-viewer.open{display:flex}
+.image-viewer-panel{position:relative;display:flex;align-items:center;justify-content:center;width:min(94vw,760px);height:min(92vh,980px);background:#fff;border-radius:12px;padding:18px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+.image-viewer img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.image-viewer-close{position:absolute;top:8px;right:8px;z-index:2;width:40px;height:40px;border:0;border-radius:50%;background:#202323;color:#fff;font-size:25px;line-height:1;cursor:pointer}
+.view-product{position:absolute;z-index:5;right:12px;bottom:12px;border:1px solid rgba(255,255,255,.8);border-radius:6px;padding:8px 12px;background:#202323;color:#fff;font:500 13px Arial,sans-serif;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.view-product:hover{background:#3b493b}
+
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -575,6 +585,12 @@ h2{font:500 clamp(30px,4vw,50px)/1.08 var(--font-display);letter-spacing:-.015em
   </div>
 </aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="image-viewer" id="imageViewer" role="dialog" aria-modal="true" aria-label="Full product image" aria-hidden="true">
+  <div class="image-viewer-panel">
+    <button type="button" class="image-viewer-close" id="closeImageViewer" aria-label="Close full product image">&times;</button>
+    <img id="imageViewerPhoto" src="" alt="">
+  </div>
+</div>
 
 <script>
 /* ============ EDIT HERE ============ */
@@ -656,7 +672,7 @@ function card(p,i){
   const c=CATS[p.cat];
   const ask=wa(`Hello KIBO, I would like to know more about ${p.name} (${p.spec}).`);
   return `<article class="card rv" style="--c:${c.color};--t:${c.tint};--i:${i%3}" data-id="${p.id}">
-    <div class="card-media">${p.image?`<img class="product-image" src="${esc(p.image)}" alt="${esc(p.name)} product photo" loading="lazy" decoding="async" onerror="this.style.display='none'">`:pack(p)}</div>
+    <div class="card-media">${p.image?`<img class="product-image" src="${esc(p.image)}" alt="${esc(p.name)} product photo" loading="lazy" decoding="async" onerror="this.style.display='none'"><button type="button" class="view-product" data-view-image="${esc(p.image)}" data-view-name="${esc(p.name)}">View full product</button>`:pack(p)}</div>
     <div class="card-body">
       <span class="chip"><i></i>${esc(c.label)}</span>
       <h3>${esc(p.name)}</h3>
@@ -760,7 +776,17 @@ function setFilter(f){filter=f;query="";$("#q").value="";renderGrid();go("produc
 
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
+  const view=e.target.closest(".view-product");
+  if(view){
+    const viewer=$("#imageViewer"), photo=$("#imageViewerPhoto");
+    photo.src=view.dataset.viewImage;
+    photo.alt=(view.dataset.viewName||"Product")+" full product photo";
+    viewer.classList.add("open");viewer.setAttribute("aria-hidden","false");
+    document.body.style.overflow="hidden";
+    return;
+  }
   const t=e.target.closest("button,a"); if(!t) return;
+  if(t.id==="closeImageViewer"){closeImageViewer();return}
   if(t.dataset.go){e.preventDefault();$("#mobileNav").classList.remove("open");$("#menuBtn").setAttribute("aria-expanded","false");go(t.dataset.go);return}
   if(t.classList.contains("tile")||(t.dataset.f&&t.closest("#footCats"))){e.preventDefault();setFilter(t.dataset.f);return}
   if(t.classList.contains("tab")){filter=t.dataset.f;renderGrid();return}
@@ -782,8 +808,16 @@ document.addEventListener("click",e=>{
   if(t.dataset.lq){const l=cart[+t.closest(".line").dataset.i];l.qty=Math.max(1,Math.min(999,l.qty+ +t.dataset.lq));save("kibo-order-v1",cart);renderCart();return}
   if(t.id==="sendOrder"&&t.getAttribute("aria-disabled")==="true"){e.preventDefault();return}
 });
+function closeImageViewer(){
+  const viewer=$("#imageViewer");
+  if(!viewer)return;
+  viewer.classList.remove("open");viewer.setAttribute("aria-hidden","true");
+  $("#imageViewerPhoto").src="";
+  document.body.style.overflow="";
+}
+$("#imageViewer").addEventListener("click",e=>{if(e.target.id==="imageViewer")closeImageViewer()});
 $("#scrim").addEventListener("click",closeCart);
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeCart()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeCart();closeImageViewer()}});
 $("#q").addEventListener("input",e=>{query=e.target.value;renderGrid()});
 ["c-name","c-loc","c-note","ct-name","ct-topic","ct-msg"].forEach(id=>$("#"+id).addEventListener("input",refreshLinks));
 $("#contactForm").addEventListener("submit",e=>e.preventDefault());
